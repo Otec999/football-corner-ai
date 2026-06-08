@@ -30,6 +30,35 @@ try:
 except ImportError:
     PRESETS = {}
 
+# Auto data collector
+try:
+    from core.data_collector import DemoDataProvider
+    AUTO_DATA_AVAILABLE = True
+except ImportError:
+    AUTO_DATA_AVAILABLE = False
+
+
+class DataFetchThread(QThread):
+    """Thread for fetching data from internet"""
+    finished = pyqtSignal(object)
+    error = pyqtSignal(str)
+    
+    def __init__(self, home_team, away_team, competition):
+        super().__init__()
+        self.home_team = home_team
+        self.away_team = away_team
+        self.competition = competition
+    
+    def run(self):
+        try:
+            # Используем демо-режим (в будущем - реальные API)
+            data = DemoDataProvider.analyze_match_demo(
+                self.home_team, self.away_team
+            )
+            self.finished.emit(data)
+        except Exception as e:
+            self.error.emit(str(e))
+
 
 class AnalysisThread(QThread):
     finished = pyqtSignal(object)
@@ -57,8 +86,11 @@ class AnalysisThread(QThread):
 class MatchInputPanel(QWidget):
     """Panel for entering match data"""
     
+    data_fetched = pyqtSignal(object)  # Signal when auto data is loaded
+    
     def __init__(self):
         super().__init__()
+        self.fetch_thread = None
         self.init_ui()
     
     def init_ui(self):
@@ -83,8 +115,7 @@ class MatchInputPanel(QWidget):
             }
             QToolButton:hover {
                 background-color: #16213e;
-            }
-        """)
+                    """)
         
         menu = QMenu()
         for name in PRESETS.keys():
@@ -99,6 +130,30 @@ class MatchInputPanel(QWidget):
         
         self.presets_menu.setMenu(menu)
         presets_layout.addWidget(self.presets_menu)
+        
+        # Auto-fetch button
+        self.btn_auto_fetch = QPushButton("🌐 Авто-сбор из интернета")
+        self.btn_auto_fetch.setStyleSheet("""
+            QPushButton {
+                background-color: #2ecc71;
+                color: white;
+                border: none;
+                padding: 8px 12px;
+                border-radius: 4px;
+                font-weight: bold;
+                font-size: 11px;
+            }
+            QPushButton:hover {
+                background-color: #27ae60;
+            }
+            QPushButton:disabled {
+                background-color: #333;
+                color: #666;
+            }
+        """)
+        self.btn_auto_fetch.clicked.connect(self.auto_fetch_data)
+        presets_layout.addWidget(self.btn_auto_fetch)
+        
         presets_layout.addStretch()
         
         presets_grp.setLayout(presets_layout)
@@ -348,6 +403,119 @@ class MatchInputPanel(QWidget):
         self.lineup_striker.setChecked(lu.main_striker_available)
         self.lineup_rotation.setChecked(lu.rotation_risk)
         self.lineup_missing.setText(", ".join(lu.key_attacking_missing))
+    
+    def auto_fetch_data(self):
+        """Автоматический сбор данных из интернета"""
+        home = self.edit_home_team.text().strip()
+        away = self.edit_away_team.text().strip()
+        comp = self.edit_competition.text().strip()
+        
+        if not home or not away:
+            QMessageBox.warning(self, "Ошибка", "Введите названия команд")
+            return
+        
+        self.btn_auto_fetch.setEnabled(False)
+        self.btn_auto_fetch.setText("⚡ Собираю данные...")
+        
+        self.fetch_thread = DataCollectionThread(home, away, comp)
+        self.fetch_thread.finished.connect(self.on_data_fetched)
+        self.fetch_thread.error.connect(self.on_fetch_error)
+        self.fetch_thread.progress.connect(self.on_fetch_progress)
+        self.fetch_thread.start()
+    
+    def on_fetch_progress(self, msg):
+        """Обновление статуса сбора"""
+        # Ищем главное окно для обновления статус-бара
+        parent = self.parent()
+        while parent and not hasattr(parent, 'statusBar'):
+            parent = parent.parent()
+        if parent and hasattr(parent, 'statusBar'):
+            parent.statusBar().showMessage(msg)
+    
+    def on_data_fetched(self, data):
+        """Данные получены - заполняем форму"""
+        self.btn_auto_fetch.setEnabled(True)
+        self.btn_auto_fetch.setText("🌐 Авто-сбор из интернета")
+        
+        if data:
+            home_data = data.get('home')
+            away_data = data.get('away')
+            h2h = data.get('h2h')
+            context = data.get('context')
+            
+            if home_data:
+                self.edit_home_team.setText(home_data.name)
+                self.home_stats['home_overall_for'].setValue(home_data.overall_avg_corners_for)
+                self.home_stats['home_overall_against'].setValue(home_data.overall_avg_corners_against)
+                self.home_stats['home_home_for'].setValue(home_data.home_avg_corners_for)
+                self.home_stats['home_home_against'].setValue(home_data.home_avg_corners_against)
+                self.home_stats['home_attacking'].setValue(home_data.attacking_production)
+                self.home_stats['home_defensive'].setValue(home_data.defensive_weakness)
+                self.home_stats['home_last3'].setValue(home_data.last_3_avg_corners_for)
+                self.home_stats['home_last5'].setValue(home_data.last_5_avg_corners_for)
+                
+                # Устанавливаем тактический профиль
+                profiles = list(TacticalProfile)
+                for i, p in enumerate(profiles):
+                    if p == home_data.tactical_profile:
+                        self.home_profile.setCurrentIndex(i)
+                        break
+            
+            if away_data:
+                self.edit_away_team.setText(away_data.name)
+                self.away_stats['away_overall_for'].setValue(away_data.overall_avg_corners_for)
+                self.away_stats['away_overall_against'].setValue(away_data.overall_avg_corners_against)
+                self.away_stats['away_away_for'].setValue(away_data.away_avg_corners_for)
+                self.away_stats['away_away_against'].setValue(away_data.away_avg_corners_against)
+                self.away_stats['away_attacking'].setValue(away_data.attacking_production)
+                self.away_stats['away_defensive'].setValue(away_data.defensive_weakness)
+                self.away_stats['away_last3'].setValue(away_data.last_3_avg_corners_for)
+                self.away_stats['away_last5'].setValue(away_data.last_5_avg_corners_for)
+                
+                profiles = list(TacticalProfile)
+                for i, p in enumerate(profiles):
+                    if p == away_data.tactical_profile:
+                        self.away_profile.setCurrentIndex(i)
+                        break
+            
+            if h2h and h2h.total_matches > 0:
+                self.h2h_total.setValue(h2h.total_matches)
+                self.h2h_avg.setValue(h2h.avg_total_corners)
+                self.h2h_over_10.setValue(h2h.matches_over_10_corners or 0)
+                self.h2h_over_11.setValue(h2h.matches_over_11_corners or 0)
+            
+            if context:
+                self.edit_competition.setText(context.competition)
+                imp_list = list(MatchImportance)
+                for i, imp in enumerate(imp_list):
+                    if imp == context.importance:
+                        self.ctx_importance.setCurrentIndex(i)
+                        break
+            
+            # Обновляем статус
+            parent = self.parent()
+            while parent and not hasattr(parent, 'statusBar'):
+                parent = parent.parent()
+            if parent and hasattr(parent, 'statusBar'):
+                parent.statusBar().showMessage(
+                    f"✅ Данные загружены для {home_data.name} vs {away_data.name}! Нажмите Analyze."
+                )
+            
+            QMessageBox.information(self, "✅ Данные получены",
+                f"Статистика для матча {home_data.name} vs {away_data.name}\n"
+                f"загружена из интернета (демо-режим).\n\n"
+                f"Нажмите Analyze для расчёта сигналов!"
+            )
+    
+    def on_fetch_error(self, error_msg):
+        """Ошибка при сборе данных"""
+        self.btn_auto_fetch.setEnabled(True)
+        self.btn_auto_fetch.setText("🌐 Авто-сбор из интернета")
+        
+        QMessageBox.warning(self, "❌ Ошибка",
+            f"Не удалось получить данные:\n{error_msg}\n\n"
+            f"Введите данные вручную или выберите пресет."
+        )
     
     def get_data(self):
         """Collect all input data"""
