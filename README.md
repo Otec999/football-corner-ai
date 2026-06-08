@@ -23,6 +23,9 @@
 
 ### 🎯 Возможности
 
+- **Автоматический сбор данных из интернета** — Поиск команд, статистики и H2H через API-Football
+- **Демо-режим с 50 командами** — Встроенная база топ-клубов из 7 лиг с предзагруженной статистикой
+- **Живые матчи на сегодня** — Автоматическое получение списка актуальных матчей
 - **Глубокий анализ матча** — Оценка 6 ключевых факторов (сила команды, форма, история встреч, тактика, контекст, состав)
 - **Генерация сигналов** — Прогнозы угловых с оценкой уверенности для 5 рынков
 - **Умная аргументация** — Каждый сигнал сопровождается понятным объяснением
@@ -70,6 +73,51 @@
 
 ---
 
+## 🌐 Автоматический сбор данных
+
+### FootballDataCollector
+
+Система поддерживает **3 источника** данных:
+
+1. **API-Football** (бесплатный, 100 запросов/день) — поиск команд, статистика, H2H
+2. **FlashScore** — парсинг в реальном времени (резервный источник)
+3. **Football-data.org** — альтернативный API
+
+При отсутствии интернета или исчерпании лимита API автоматически включается **DemoDataProvider**.
+
+### DemoDataProvider (50 команд)
+
+Встроенная база данных **50 топ-клубов** из 7 лиг:
+
+| Лига | Команды |
+|------|---------|
+| 🇪🇸 **La Liga** | Real Madrid, Barcelona, Atlético Madrid, Valencia, Sevilla, Real Sociedad, Athletic Bilbao, Villarreal, Real Betis, Getafe, Granada, Alavés |
+| 🏴󠁧󠁢󠁥󠁮󠁧󠁿 **Premier League** | Manchester City, Arsenal, Liverpool, Chelsea, Manchester United, Tottenham, Aston Villa, Brentford, Fulham |
+| 🇩🇪 **Bundesliga** | Bayern Munich, Borussia Dortmund, Bochum, Hoffenheim |
+| 🇮🇹 **Serie A** | AC Milan, Juventus, Inter Milan, Roma, Napoli, Lazio, Fiorentina, Monza, Cagliari, Empoli |
+| 🇫🇷 **Ligue 1** | PSG, Lyon, Marseille, Monaco, Strasbourg, Lille, Nice, Reims, Brest |
+| 🇳🇱 **Eredivisie** | Ajax, Feyenoord, PSV |
+| 🇵🇹 **Liga Portugal** | Benfica, Porto, Sporting |
+
+**18 пар H2H** с реальными данными включают:
+- El Clásico (Real Madrid vs Barcelona)
+- Der Klassiker (Bayern vs Dortmund)
+- Derby della Madonnina (AC Milan vs Inter)
+- Derby della Mole (Juventus vs Inter)
+- Le Classique (PSG vs Marseille)
+- De Klassieker (Ajax vs Feyenoord)
+- O Clássico (Benfica vs Porto)
+- И другие
+
+### Live Matches
+
+Модуль `LiveMatchFetcher` автоматически получает матчи на сегодня/завтра:
+- Через API-Football
+- Через OpenLigaDB (бесплатно)
+- Резервные матчи популярных лиг при отсутствии интернета
+
+---
+
 ## 🚀 Установка
 
 ### Требования
@@ -103,6 +151,16 @@ python main.py
 4. Нажмите **"🚀 RUN INTELLIGENCE ANALYSIS"**
 5. Просмотрите результаты на вкладках правой панели
 
+### Автоматический сбор данных (режим онлайн)
+
+1. Введите названия команд (например, "Real Madrid", "Barcelona")
+2. Нажмите **"🌐 Collect Data From Internet"**
+3. Система автоматически найдёт:
+   - Статистику команд через API
+   - Историю встреч (H2H)
+   - Контекст матча (турнир, важность)
+4. Нажмите **"🚀 RUN INTELLIGENCE ANALYSIS"**
+
 ### Ручной ввод
 
 1. Введите турнир, команды и тур
@@ -112,6 +170,14 @@ python main.py
 5. Настройте контекст матча (дерби, кубок и т.д.)
 6. Укажите информацию о составе
 7. Нажмите **"Analyze"**!
+
+### Настройка API ключей (опционально)
+
+Для получения реальных данных из интернета:
+
+1. Зарегистрируйтесь на [api-football.com](https://www.api-football.com/) (бесплатно, 100 запросов/день)
+2. Вставьте ключ API в панели Config → **"API Keys"**
+3. ИЛИ используйте встроенный демо-ключ (уже установлен)
 
 ### Настройка Telegram (опционально)
 
@@ -127,9 +193,11 @@ python main.py
 
 ```
 football-corner-ai/
-├── core/                      # Аналитический движок
+├── core/                      # Аналитический движок и сбор данных
 │   ├── __init__.py            # Экспорт пакета
 │   ├── analysis_engine.py     # Логика AI-анализа
+│   ├── data_collector.py      # Сбор данных (API + демо-база 50 команд)
+│   ├── live_matches.py        # Получение живых матчей на сегодня
 │   └── telegram_bot.py        # Интеграция с Telegram
 ├── data/
 │   └── presets.py             # Предварительно настроенные матчи
@@ -146,7 +214,7 @@ football-corner-ai/
 
 Движок имитирует мыслительный процесс футбольного аналитика:
 
-1. **Сбор данных** → Собирает всю доступную статистику
+1. **Сбор данных** → Автоматически из интернета или из встроенной базы
 2. **Анализ факторов** → Каждый фактор оценивается независимо
 3. **Взвешенный расчет** → Факторы комбинируются с настраиваемыми весами
 4. **Корректировка контекста** → Ситуация матча изменяет прогнозы
@@ -189,6 +257,7 @@ football-corner-ai/
 - Предлагать улучшения
 - Добавлять пресеты матчей
 - Улучшать аналитический движок
+- Добавлять новые команды в демо-базу
 
 ---
 
@@ -227,6 +296,9 @@ football-corner-ai/
 
 ### 🎯 What It Does
 
+- **Automated Internet Data Collection** — Fetches teams, stats, and H2H via API-Football
+- **Demo Mode with 50 Teams** — Built-in database of top clubs from 7 leagues
+- **Live Matches Today** — Auto-fetches current/relevant matches
 - **Deep Match Analysis** — Evaluates 6 key factors (team strength, form, H2H, tactical profile, context, lineup)
 - **Signal Generation** — Produces confidence-rated corner predictions for 5 markets
 - **Smart Reasoning** — Every signal comes with human-readable explanations
@@ -274,6 +346,51 @@ football-corner-ai/
 
 ---
 
+## 🌐 Automated Data Collection
+
+### FootballDataCollector
+
+The system supports **3 data sources**:
+
+1. **API-Football** (free, 100 requests/day) — team search, stats, H2H
+2. **FlashScore** — real-time parsing (fallback)
+3. **Football-data.org** — alternative API
+
+When offline or API limit is reached, **DemoDataProvider** kicks in automatically.
+
+### DemoDataProvider (50 Teams)
+
+Built-in database of **50 top clubs** from 7 leagues:
+
+| League | Teams |
+|--------|-------|
+| 🇪🇸 **La Liga** | Real Madrid, Barcelona, Atlético Madrid, Valencia, Sevilla, Real Sociedad, Athletic Bilbao, Villarreal, Real Betis, Getafe, Granada, Alavés |
+| 🏴󠁧󠁢󠁥󠁮󠁧󠁿 **Premier League** | Manchester City, Arsenal, Liverpool, Chelsea, Manchester United, Tottenham, Aston Villa, Brentford, Fulham |
+| 🇩🇪 **Bundesliga** | Bayern Munich, Borussia Dortmund, Bochum, Hoffenheim |
+| 🇮🇹 **Serie A** | AC Milan, Juventus, Inter Milan, Roma, Napoli, Lazio, Fiorentina, Monza, Cagliari, Empoli |
+| 🇫🇷 **Ligue 1** | PSG, Lyon, Marseille, Monaco, Strasbourg, Lille, Nice, Reims, Brest |
+| 🇳🇱 **Eredivisie** | Ajax, Feyenoord, PSV |
+| 🇵🇹 **Liga Portugal** | Benfica, Porto, Sporting |
+
+**18 H2H pairs** with real data include:
+- El Clásico (Real Madrid vs Barcelona)
+- Der Klassiker (Bayern vs Dortmund)
+- Derby della Madonnina (AC Milan vs Inter)
+- Derby della Mole (Juventus vs Inter)
+- Le Classique (PSG vs Marseille)
+- De Klassieker (Ajax vs Feyenoord)
+- O Clássico (Benfica vs Porto)
+- And more
+
+### Live Matches
+
+`LiveMatchFetcher` automatically fetches today's/tomorrow's matches:
+- Via API-Football
+- Via OpenLigaDB (free)
+- Fallback to popular leagues when offline
+
+---
+
 ## 🚀 Installation
 
 ### Prerequisites
@@ -307,6 +424,16 @@ python main.py
 4. Click **"🚀 RUN INTELLIGENCE ANALYSIS"**
 5. View results in the right panel tabs
 
+### Automatic Data Collection (Online Mode)
+
+1. Enter team names (e.g., "Real Madrid", "Barcelona")
+2. Click **"🌐 Collect Data From Internet"**
+3. System automatically finds:
+   - Team statistics via API
+   - Head-to-head (H2H) data
+   - Match context (competition, importance)
+4. Click **"🚀 RUN INTELLIGENCE ANALYSIS"**
+
 ### Manual Input
 
 1. Enter competition, teams, and round
@@ -316,6 +443,14 @@ python main.py
 5. Configure match context (derby, cup, etc.)
 6. Adjust lineup information
 7. Click **"Analyze"**!
+
+### API Key Setup (Optional)
+
+For real internet data:
+
+1. Register at [api-football.com](https://www.api-football.com/) (free, 100 requests/day)
+2. Enter API key in Config panel → **"API Keys"**
+3. OR use the built-in demo key (already configured)
 
 ### Telegram Setup (Optional)
 
@@ -331,9 +466,11 @@ python main.py
 
 ```
 football-corner-ai/
-├── core/                      # Analysis engine
+├── core/                      # Analysis engine & data collection
 │   ├── __init__.py            # Package exports
 │   ├── analysis_engine.py     # AI analysis logic
+│   ├── data_collector.py      # Data collection (API + 50-team demo DB)
+│   ├── live_matches.py        # Live match fetching
 │   └── telegram_bot.py        # Telegram integration
 ├── data/
 │   └── presets.py             # Pre-configured match presets
@@ -350,7 +487,7 @@ football-corner-ai/
 
 The engine simulates a human football analyst's thought process:
 
-1. **Data Collection** → Gathers all available statistics
+1. **Data Collection** → Automatically from internet or built-in database
 2. **Factor Analysis** → Each factor is evaluated independently
 3. **Weighted Calculation** → Factors are combined with configurable weights
 4. **Context Adjustment** → Match situation modifies projections
@@ -393,6 +530,7 @@ Contributions are welcome! Feel free to:
 - Suggest enhancements
 - Add match presets
 - Improve the analysis engine
+- Add new teams to the demo database
 
 ---
 
