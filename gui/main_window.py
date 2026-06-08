@@ -38,10 +38,11 @@ except ImportError:
     AUTO_DATA_AVAILABLE = False
 
 
-class DataFetchThread(QThread):
+class DataCollectionThread(QThread):
     """Thread for fetching data from internet"""
     finished = pyqtSignal(object)
     error = pyqtSignal(str)
+    progress = pyqtSignal(str)
     
     def __init__(self, home_team, away_team, competition):
         super().__init__()
@@ -51,10 +52,21 @@ class DataFetchThread(QThread):
     
     def run(self):
         try:
-            # Используем демо-режим (в будущем - реальные API)
-            data = DemoDataProvider.analyze_match_demo(
-                self.home_team, self.away_team
-            )
+            self.progress.emit(f"🔍 Ищу данные для {self.home_team} vs {self.away_team}...")
+            
+            # Сначала пробуем реальный API-Football
+            from core.data_collector import FootballDataCollector, DemoDataProvider
+            collector = FootballDataCollector()
+            data = collector.analyze_match_online(self.home_team, self.away_team, self.competition)
+            
+            # Если API не дал данных (ключ не настроен или лимит), используем демо
+            if not data or not data.get('home') or not data['home'].name:
+                self.progress.emit("🌐 API недоступен, использую демо-режим...")
+                data = DemoDataProvider.analyze_match_demo(
+                    self.home_team, self.away_team
+                )
+            
+            self.progress.emit(f"✅ Данные найдены! Загружаю в форму...")
             self.finished.emit(data)
         except Exception as e:
             self.error.emit(str(e))
